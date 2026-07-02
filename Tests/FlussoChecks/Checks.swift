@@ -11,6 +11,7 @@ struct Checks {
         }
         await appSettingsChecks()
         await personalDictionaryChecks()
+        await historyStoreChecks()
         Harness.finish()
     }
 }
