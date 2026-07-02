@@ -38,6 +38,7 @@ struct SettingsView: View {
             models = try await OllamaClient(endpoint: url).listModels()
             modelError = nil
         } catch {
+            models = []
             modelError = "Ollama not reachable. Install models with: ollama pull <name>"
         }
     }

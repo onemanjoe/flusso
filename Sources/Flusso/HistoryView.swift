@@ -37,5 +37,8 @@ struct HistoryView: View {
         .padding()
         .frame(width: 480, height: 460)
         .onAppear { records = state.history.recent(20) }
+        .onChange(of: state.phase) { _, newPhase in
+            if newPhase == .idle { records = state.history.recent(20) }
+        }
     }
 }
