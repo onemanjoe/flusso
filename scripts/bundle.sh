@@ -29,6 +29,11 @@ echo "Built $APP"
 
 if [ "${1:-}" = "--install" ]; then
     osascript -e 'tell application "Flusso" to quit' 2>/dev/null || true
+    for i in $(seq 1 10); do
+        pgrep -x Flusso >/dev/null 2>&1 || break
+        sleep 1
+    done
+    pkill -x Flusso 2>/dev/null || true
     sleep 1
     rm -rf "/Applications/Flusso.app"
     cp -R "$APP" "/Applications/Flusso.app"

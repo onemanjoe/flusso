@@ -28,7 +28,7 @@ final class AppState: ObservableObject {
     private let hotkey = HotkeyMonitor()
     private let indicator = RecordingIndicator()
     private var lastCleaned: String?
-    private var didStartEngines = false
+    private var startInFlight = false
 
     init(directory: URL = Paths.appSupportDir()) {
         dir = directory
@@ -49,8 +49,25 @@ final class AppState: ObservableObject {
         // before either updates phase. Set this flag synchronously, before any
         // `await`, so MainActor serialization guarantees only the call that
         // starts running first ever proceeds.
-        guard !didStartEngines else { return }
-        didStartEngines = true
+        //
+        // Post-review fix (C1): a one-shot flag that was never reset made a
+        // failed automatic launch call (e.g. fresh install, permissions not
+        // yet granted) permanently unrecoverable, since OnboardingView's
+        // "Download and start" button calls this same method and it would be
+        // a no-op forever after the first attempt. Replace the one-shot flag
+        // with an in-flight flag (still set synchronously before any `await`,
+        // so concurrent calls are still serialized) plus a phase gate: only
+        // `.starting` (first automatic call) or `.needsSetup` (retry from
+        // onboarding) are allowed to proceed. Once engines are actually
+        // running (`.idle`/`.recording`/`.processing`), further calls return
+        // immediately, so the hotkey tap can still never be double-started.
+        guard !startInFlight else { return }
+        switch phase {
+        case .starting, .needsSetup: break
+        default: return
+        }
+        startInFlight = true
+        defer { startInFlight = false }
         guard Permissions.microphoneGranted, Permissions.accessibilityGranted,
               Permissions.inputMonitoringGranted else {
             phase = .needsSetup("Permissions missing. Open Setup from the menu.")

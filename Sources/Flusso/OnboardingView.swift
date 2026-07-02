@@ -53,6 +53,7 @@ struct OnboardingView: View {
             ax = Permissions.accessibilityGranted
             input = Permissions.inputMonitoringGranted
         }
+        .onAppear { engineReady = state.engine.isReady }
     }
 
     @ViewBuilder
