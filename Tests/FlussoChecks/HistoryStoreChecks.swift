@@ -29,4 +29,23 @@ func historyStoreChecks() async {
         try Harness.expect(store.count == 0, "corpus not wiped")
         try Harness.expect(!FileManager.default.fileExists(atPath: wav.path), "audio not wiped")
     }
+    await Harness.check("append does not clobber corpus when file is unwritable") {
+        let dir = Harness.tempDir()
+        let store = HistoryStore(directory: dir)
+        try store.append(DictationRecord(date: Date(), raw: "keep", cleaned: "keep", audioFile: nil))
+        let corpus = dir.appendingPathComponent("corpus.jsonl")
+        try FileManager.default.setAttributes([.posixPermissions: 0o444], ofItemAtPath: corpus.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: corpus.path) }
+        do {
+            try store.append(DictationRecord(date: Date(), raw: "new", cleaned: "new", audioFile: nil))
+            try Harness.expect(false, "append to read-only corpus should throw")
+        } catch is CheckError {
+            throw CheckError("append to read-only corpus should throw")
+        } catch {
+            // expected: some I/O error
+        }
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: corpus.path)
+        try Harness.expect(store.count == 1, "corpus was clobbered or lost")
+        try Harness.expect(store.recent(1).first?.raw == "keep", "surviving record wrong")
+    }
 }

@@ -17,6 +17,7 @@ public struct DictationRecord: Codable, Equatable {
 public final class HistoryStore {
     private let corpusURL: URL
     public let audioDir: URL
+    private let lock = NSLock()
 
     public init(directory: URL) {
         corpusURL = directory.appendingPathComponent("corpus.jsonl")
@@ -25,20 +26,25 @@ public final class HistoryStore {
     }
 
     public func append(_ record: DictationRecord) throws {
+        lock.lock()
+        defer { lock.unlock() }
         let enc = JSONEncoder()
         enc.dateEncodingStrategy = .iso8601
         var line = try enc.encode(record)
         line.append(0x0A)
-        if let handle = try? FileHandle(forWritingTo: corpusURL) {
-            defer { try? handle.close() }
-            try handle.seekToEnd()
-            try handle.write(contentsOf: line)
-        } else {
+        guard FileManager.default.fileExists(atPath: corpusURL.path) else {
             try line.write(to: corpusURL)
+            return
         }
+        let handle = try FileHandle(forWritingTo: corpusURL)
+        defer { try? handle.close() }
+        try handle.seekToEnd()
+        try handle.write(contentsOf: line)
     }
 
     private func allRecords() -> [DictationRecord] {
+        lock.lock()
+        defer { lock.unlock() }
         guard let text = try? String(contentsOf: corpusURL, encoding: .utf8) else { return [] }
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
@@ -54,6 +60,8 @@ public final class HistoryStore {
     }
 
     public func deleteAll() throws {
+        lock.lock()
+        defer { lock.unlock() }
         try? FileManager.default.removeItem(at: corpusURL)
         try? FileManager.default.removeItem(at: audioDir)
         try FileManager.default.createDirectory(at: audioDir, withIntermediateDirectories: true)
