@@ -9,6 +9,7 @@ struct Checks {
             try Harness.expect(FileManager.default.fileExists(atPath: dir.path), "dir missing")
             try Harness.expect(dir.lastPathComponent == "Flusso", "wrong dir name")
         }
+        await appSettingsChecks()
         Harness.finish()
     }
 }
