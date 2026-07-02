@@ -34,6 +34,8 @@ final class HotkeyMonitor {
         runLoopSource = nil
     }
 
+    deinit { stop() }
+
     private func handle(type: CGEventType, event: CGEvent) {
         // macOS disables taps that stall; re-enable defensively.
         if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {

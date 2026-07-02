@@ -2,6 +2,16 @@ import AVFoundation
 import Foundation
 
 enum SelfTest {
+    /// Synchronous pre-check so the entry point can decide, before doing any
+    /// async work, whether to run a CLI selftest or launch the SwiftUI app.
+    static var isRequested: Bool {
+        let args = CommandLine.arguments
+        if args.contains("--selftest-audio") { return true }
+        if let i = args.firstIndex(of: "--selftest-asr"), args.count > i + 1 { return true }
+        if args.contains("--selftest-paste") { return true }
+        return false
+    }
+
     /// Returns true when a selftest ran; the caller must exit afterwards.
     static func runIfRequested() async -> Bool {
         let args = CommandLine.arguments

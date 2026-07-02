@@ -1,0 +1,158 @@
+import Cocoa
+import FlussoCore
+import SwiftUI
+
+@MainActor
+final class AppState: ObservableObject {
+    enum Phase: Equatable {
+        case starting, needsSetup(String), idle, recording, processing
+    }
+
+    @Published var phase: Phase = .starting
+    @Published var lastWarning: String?
+    @Published var settings: AppSettings {
+        didSet { try? settings.save(to: dir) }
+    }
+    var dictionary: PersonalDictionary {
+        didSet { try? dictionary.save(to: dir) }
+    }
+
+    let dir: URL
+    let history: HistoryStore
+    let engine: TranscriptionEngine = ParakeetEngine()
+    private let recorder = AudioRecorder()
+    private let hotkey = HotkeyMonitor()
+    private let indicator = RecordingIndicator()
+    private var lastCleaned: String?
+    private var didStartEngines = false
+
+    init(directory: URL = Paths.appSupportDir()) {
+        dir = directory
+        settings = AppSettings.load(from: directory)
+        dictionary = PersonalDictionary.load(from: directory)
+        history = HistoryStore(directory: directory)
+    }
+
+    func startEngines() async {
+        // Adaptation (task-12): guard reentry so calling this twice (once from
+        // FlussoApp.init(), once from the .task on the menu content, since
+        // MenuBarExtra's .task timing is unreliable, see FlussoApp.swift) never
+        // creates a second CGEventTap in HotkeyMonitor, which has no idempotency
+        // guard of its own and would otherwise leak a live, unstoppable tap and
+        // double-fire every Fn press. A plain `phase == .starting` check is not
+        // enough: `engine.prepare()` below is a real suspension point, so two
+        // concurrently scheduled calls could both pass a phase-based guard
+        // before either updates phase. Set this flag synchronously, before any
+        // `await`, so MainActor serialization guarantees only the call that
+        // starts running first ever proceeds.
+        guard !didStartEngines else { return }
+        didStartEngines = true
+        guard Permissions.microphoneGranted, Permissions.accessibilityGranted,
+              Permissions.inputMonitoringGranted else {
+            phase = .needsSetup("Permissions missing. Open Setup from the menu.")
+            return
+        }
+        do {
+            try await engine.prepare()
+        } catch {
+            phase = .needsSetup("Speech model not ready: \(error.localizedDescription)")
+            return
+        }
+        hotkey.onAction = { [weak self] action in self?.handle(action) }
+        guard hotkey.start() else {
+            phase = .needsSetup("Cannot listen for the Fn key. Check Input Monitoring permission.")
+            return
+        }
+        phase = .idle
+        prewarmCleanupModel()
+    }
+
+    /// First chat after idle pays ~5 s of model load, which would trip the cleanup
+    /// timeout. A throwaway ping at startup loads the model while nobody waits.
+    private func prewarmCleanupModel() {
+        guard settings.cleanupEnabled, let url = URL(string: settings.ollamaEndpoint) else { return }
+        let client = OllamaClient(endpoint: url)
+        let model = settings.ollamaModel
+        Task.detached {
+            _ = try? await client.chat(model: model, system: "Reply with: ok",
+                                       user: "ok", timeoutSeconds: 60)
+        }
+    }
+
+    private func handle(_ action: FnAction) {
+        guard !settings.paused else { return }
+        switch action {
+        case .startRecording:
+            guard phase == .idle else { return }
+            do {
+                try recorder.start()
+                phase = .recording
+                indicator.show("Listening", color: .red)
+            } catch {
+                lastWarning = "Microphone failed: \(error.localizedDescription)"
+            }
+        case .cancelRecording:
+            guard phase == .recording else { return }
+            _ = recorder.stop()
+            phase = .idle
+            indicator.hide()
+        case .stopAndProcess:
+            guard phase == .recording else { return }
+            let samples = recorder.stop()
+            phase = .processing
+            indicator.show("Thinking", color: .orange)
+            Task { await process(samples) }
+        case .none:
+            break
+        }
+    }
+
+    private func process(_ samples: [Float]) async {
+        defer {
+            indicator.hide()
+            phase = .idle
+        }
+        guard Double(samples.count) >= AudioRecorder.targetSampleRate * 0.4 else { return }
+        do {
+            let raw = try await engine.transcribe(samples)
+            guard !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+            var result = CleanResult(text: raw, usedFallback: false)
+            if settings.cleanupEnabled {
+                let client = OllamaClient(endpoint: URL(string: settings.ollamaEndpoint)!)
+                let model = settings.ollamaModel
+                let cleaner = Cleaner(chat: { system, user in
+                    try await client.chat(model: model, system: system, user: user, timeoutSeconds: 5)
+                })
+                result = await cleaner.clean(raw: raw, dictionaryTerms: dictionary.terms)
+            }
+            lastWarning = result.usedFallback
+                ? "AI cleanup unavailable, pasted the raw transcription." : nil
+
+            Injector.paste(result.text)
+            lastCleaned = result.text
+
+            var audioFile: String?
+            if settings.storeAudio {
+                let name = "\(Int(Date().timeIntervalSince1970)).wav"
+                try? WavWriter.write(samples: samples,
+                                     to: history.audioDir.appendingPathComponent(name))
+                audioFile = name
+            }
+            try? history.append(DictationRecord(date: Date(), raw: raw,
+                                                cleaned: result.text, audioFile: audioFile))
+        } catch {
+            lastWarning = "Transcription failed: \(error.localizedDescription)"
+        }
+    }
+
+    func copyLastDictation() {
+        guard let lastCleaned else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(lastCleaned, forType: .string)
+    }
+
+    func togglePaused() {
+        settings.paused.toggle()
+    }
+}
