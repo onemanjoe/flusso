@@ -12,6 +12,7 @@ struct Checks {
         await appSettingsChecks()
         await personalDictionaryChecks()
         await historyStoreChecks()
+        await ollamaClientChecks()
         Harness.finish()
     }
 }
