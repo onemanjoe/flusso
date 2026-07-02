@@ -9,7 +9,9 @@ final class AudioRecorder {
     private let lock = NSLock()
 
     func start() throws {
+        lock.lock()
         samples.removeAll()
+        lock.unlock()
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
         guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
@@ -55,6 +57,7 @@ final class AudioRecorder {
 
 enum WavWriter {
     static func write(samples: [Float], to url: URL) throws {
+        guard !samples.isEmpty else { return }
         let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                    sampleRate: AudioRecorder.targetSampleRate,
                                    channels: 1, interleaved: false)!
