@@ -14,6 +14,7 @@ struct Checks {
         await historyStoreChecks()
         await ollamaClientChecks()
         await cleanerChecks()
+        await fnStateMachineChecks()
         Harness.finish()
     }
 }
