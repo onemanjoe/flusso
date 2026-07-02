@@ -10,6 +10,7 @@ struct Checks {
             try Harness.expect(dir.lastPathComponent == "Flusso", "wrong dir name")
         }
         await appSettingsChecks()
+        await personalDictionaryChecks()
         Harness.finish()
     }
 }
