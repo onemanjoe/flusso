@@ -41,12 +41,15 @@ enum SelfTest {
             let format = AVAudioFormat(commonFormat: .pcmFormatFloat32,
                                        sampleRate: file.fileFormat.sampleRate,
                                        channels: 1, interleaved: false)!
-            let buffer = AVAudioPCMBuffer(pcmFormat: format,
-                                          frameCapacity: AVAudioFrameCount(file.length))!
-            try file.read(into: buffer)
-            var samples = [Float](repeating: 0, count: Int(buffer.frameLength))
-            samples.withUnsafeMutableBufferPointer {
-                $0.baseAddress!.update(from: buffer.floatChannelData![0], count: Int(buffer.frameLength))
+            var samples: [Float] = []
+            samples.reserveCapacity(Int(file.length))
+            let chunk = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 16384)!
+            while file.framePosition < file.length {
+                chunk.frameLength = 0
+                try file.read(into: chunk)
+                if chunk.frameLength == 0 { break }
+                samples.append(contentsOf: UnsafeBufferPointer(start: chunk.floatChannelData![0],
+                                                               count: Int(chunk.frameLength)))
             }
             print("loaded \(samples.count) samples, preparing engine (first run downloads ~600 MB)...")
             let engine = ParakeetEngine()
