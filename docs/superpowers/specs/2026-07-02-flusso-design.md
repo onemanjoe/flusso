@@ -1,7 +1,7 @@
 # Flusso, private local dictation for macOS — Design (v1)
 
 Date: 2026-07-02
-Status: awaiting Giuseppe's review
+Status: APPROVED by Giuseppe 2026-07-02, with three additions folded in below: swappable models via Ollama (§4a), openness to better open-source models (§4a), personalization on his voice and wording (§4b)
 Working name: Flusso (changeable at any time before first build)
 
 ## 1. Goal
@@ -42,10 +42,27 @@ Components, each independently testable:
 4. **Cleaner** — HTTP call to local Ollama (`http://localhost:11434/api/chat`, model `qwen2.5:7b`, already installed and running at login). System prompt: remove fillers, fix punctuation and capitalization, resolve self-corrections keeping only final intent, apply the personal dictionary spellings, never add content, never answer the text, output only the cleaned transcript, keep the original language. 5 s timeout.
 5. **Injector** — save current NSPasteboard contents, set cleaned text, post CGEvent Cmd+V, restore previous clipboard after a short delay. Requires Accessibility permission. If no editable field accepts the paste, the text stays on the clipboard and a notification says so.
 6. **Dictionary** — a JSON file in Application Support with a list of terms (seed: Materik, Trovi Technologies, Klaviyo, PureCase, CrystalCase, Ripple, Halo, Rolando, Shenzhen). Editable from a simple list window in the app. Injected into the Cleaner prompt.
-7. **History** — last 20 dictations (raw + cleaned) in a local JSON file, viewable from the menu, delete-all button. Never leaves the machine.
+7. **History** — the menu window shows the last 20 dictations (raw + cleaned) with copy and "add word to dictionary" actions. Underneath it, the full corpus store (§4b layer 2) keeps all dictations, and optionally audio clips, in Application Support, with a delete-all button. Never leaves the machine.
 8. **Settings** — JSON file in Application Support, loaded at start, written on change.
 
 Data flow: HotkeyMonitor → AudioRecorder → Transcriber → Cleaner → Injector, with History recording the Transcriber and Cleaner outputs.
+
+## 4a. Model flexibility (requested at approval)
+
+Nothing is hardcoded to a specific model. Two abstraction points:
+
+- **Cleaner is model-agnostic through Ollama.** Settings queries `localhost:11434/api/tags` and shows a dropdown of every model Giuseppe has installed in Ollama; he picks one, no code change needed. Installing a new LLM is just `ollama pull <name>` and reselecting. Default stays `qwen2.5:7b` until a better one is validated. A custom endpoint field also allows any other OpenAI-compatible local server (LM Studio, llama.cpp) later.
+- **Transcriber is an engine protocol, not a single implementation.** v1 ships the Parakeet V3 engine; the protocol (audio buffer in, text out, language info out) leaves room to add whisper.cpp large-v3-turbo (accuracy fallback) and Apple SpeechAnalyzer (macOS 26 native) as selectable engines later without touching the rest of the app.
+
+A background research pass on current best open-source models for this exact job (IT+EN cleanup at 7B-14B size, and ASR alternatives) runs in parallel with the build; recommendations land in `docs/model-recommendations.md`.
+
+## 4b. Personalization: learns his voice, language, wordings (requested at approval)
+
+Honest framing: truly re-training the speech model on Giuseppe's voice is a heavy offline job (GPU training pipeline), not an app feature. Flusso instead personalizes in three layers, each fully local:
+
+1. **v1, dictionary:** personal terms enforced in cleanup (already in scope, §4 item 6). One-tap "add word" from the history window when something comes out misspelled.
+2. **v1, corpus collection (foundation for everything else):** every dictation is stored locally as a pair (raw transcript, cleaned text), and optionally the audio clip (setting, default ON, easy to purge). This becomes a growing private dataset of his voice, accent, and phrasing.
+3. **v1.x, style adaptation:** the Cleaner prompt automatically includes a few recent examples of his corrected dictations (few-shot), so output drifts toward how he actually writes. Later, if the corpus grows large enough and he wants it, the collected audio+text pairs are exactly what a proper fine-tune of the speech model needs (v2+, done as a separate offline job, e.g. LoRA on Whisper or Parakeet via NeMo).
 
 ## 5. Failure behavior (graceful degradation, never silent loss)
 
