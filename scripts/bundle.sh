@@ -26,3 +26,12 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 PLIST
 codesign --force --sign - "$APP"
 echo "Built $APP"
+
+if [ "${1:-}" = "--install" ]; then
+    osascript -e 'tell application "Flusso" to quit' 2>/dev/null || true
+    sleep 1
+    rm -rf "/Applications/Flusso.app"
+    cp -R "$APP" "/Applications/Flusso.app"
+    open "/Applications/Flusso.app"
+    echo "Installed to /Applications (re-grant permissions if macOS asks, the signature changed)"
+fi

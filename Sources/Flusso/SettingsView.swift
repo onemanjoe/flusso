@@ -1,4 +1,5 @@
 import FlussoCore
+import ServiceManagement
 import SwiftUI
 
 struct SettingsView: View {
@@ -8,6 +9,13 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
+            Section("General") {
+                Toggle("Start Flusso at login", isOn: $state.settings.launchAtLogin)
+                    .onChange(of: state.settings.launchAtLogin) { _, on in
+                        if on { try? SMAppService.mainApp.register() }
+                        else { try? SMAppService.mainApp.unregister() }
+                    }
+            }
             Section("AI cleanup") {
                 Toggle("Clean up dictation with a local AI model", isOn: $state.settings.cleanupEnabled)
                 Picker("Ollama model", selection: $state.settings.ollamaModel) {

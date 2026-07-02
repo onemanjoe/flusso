@@ -64,7 +64,6 @@ struct FlussoApp: App {
         Window("Recent Dictations", id: "history") { HistoryView(state: state) }
         Window("Personal Dictionary", id: "dictionary") { DictionaryView(state: state) }
         Window("Flusso Settings", id: "settings") { SettingsView(state: state) }
-        // Window scene for Task 14; placeholder keeps openWindow id valid.
-        Window("Flusso Setup", id: "onboarding") { Text("Coming in Task 14").padding() }
+        Window("Flusso Setup", id: "onboarding") { OnboardingView(state: state) }
     }
 }
