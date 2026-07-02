@@ -13,6 +13,7 @@ struct Checks {
         await personalDictionaryChecks()
         await historyStoreChecks()
         await ollamaClientChecks()
+        await cleanerChecks()
         Harness.finish()
     }
 }
