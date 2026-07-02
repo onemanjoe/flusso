@@ -35,4 +35,13 @@ func fnStateMachineChecks() async {
         try Harness.expect(m.handle(.fnDown(10.3)) == .none)
         try Harness.expect(m.handle(.fnUp(11.0)) == .stopAndProcess)
     }
+    await Harness.check("hold boundary and post-cancel idle") {
+        let m = FnStateMachine()
+        _ = m.handle(.fnDown(10.0))
+        try Harness.expect(m.handle(.fnUp(10.4)) == .stopAndProcess, "exactly 0.4 s must process")
+        _ = m.handle(.fnDown(20.0))
+        _ = m.handle(.escDown(20.1))
+        try Harness.expect(m.handle(.escDown(20.2)) == .none, "escDown after cancel must be none")
+        try Harness.expect(m.handle(.otherKeyDown(20.3)) == .none, "otherKeyDown after cancel must be none")
+    }
 }
