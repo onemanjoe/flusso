@@ -1,13 +1,14 @@
 import SwiftUI
 
 @main
-struct FlussoApp: App {
-    init() {
-        Task {
-            if await SelfTest.runIfRequested() { exit(0) }
-        }
+struct FlussoMain {
+    static func main() async {
+        if await SelfTest.runIfRequested() { exit(0) }
+        FlussoApp.main()
     }
+}
 
+struct FlussoApp: App {
     var body: some Scene {
         MenuBarExtra("Flusso", systemImage: "waveform") {
             Text("Flusso, private local dictation")
