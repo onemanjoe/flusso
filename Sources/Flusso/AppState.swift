@@ -118,16 +118,25 @@ final class AppState: ObservableObject {
             guard !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
             var result = CleanResult(text: raw, usedFallback: false)
-            if settings.cleanupEnabled {
-                let client = OllamaClient(endpoint: URL(string: settings.ollamaEndpoint)!)
+            // Post-review fix (I1): `settings.ollamaEndpoint` is user-editable text,
+            // so force-unwrapping `URL(string:)` could crash on a malformed value.
+            // Treat an invalid URL like cleanup disabled: skip cleanup, fall back to
+            // the raw transcript, and surface a dedicated warning.
+            if settings.cleanupEnabled, let url = URL(string: settings.ollamaEndpoint) {
+                let client = OllamaClient(endpoint: url)
                 let model = settings.ollamaModel
                 let cleaner = Cleaner(chat: { system, user in
                     try await client.chat(model: model, system: system, user: user, timeoutSeconds: 5)
                 })
                 result = await cleaner.clean(raw: raw, dictionaryTerms: dictionary.terms)
+                lastWarning = result.usedFallback
+                    ? "AI cleanup unavailable, pasted the raw transcription." : nil
+            } else if settings.cleanupEnabled {
+                result = CleanResult(text: raw, usedFallback: true)
+                lastWarning = "Ollama endpoint is not a valid URL, pasted the raw transcription."
+            } else {
+                lastWarning = nil
             }
-            lastWarning = result.usedFallback
-                ? "AI cleanup unavailable, pasted the raw transcription." : nil
 
             Injector.paste(result.text)
             lastCleaned = result.text
@@ -153,6 +162,15 @@ final class AppState: ObservableObject {
     }
 
     func togglePaused() {
+        // Post-review fix (M1): pausing while a recording is in flight used to
+        // leave the recorder running and the indicator on screen, stranded,
+        // since `handle(_:)` gates every action on `!settings.paused`. Stop the
+        // recorder and reset to idle first so pausing mid-recording can't strand it.
+        if phase == .recording {
+            _ = recorder.stop()
+            indicator.hide()
+            phase = .idle
+        }
         settings.paused.toggle()
     }
 }

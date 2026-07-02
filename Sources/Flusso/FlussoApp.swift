@@ -27,16 +27,24 @@ struct FlussoMain {
 }
 
 struct FlussoApp: App {
-    @StateObject private var state = AppState()
+    @StateObject private var state: AppState
 
     init() {
         // Adaptation (task-12): `.task` on MenuBarExtra content never fires from
         // a plain launch (verified empirically), only once the menu is opened,
         // which could be never. Start engines from `init()` instead so dictation
         // works without the user having to click the menu bar icon first.
-        // `startEngines()` guards against reentry, so if `.task` below also
-        // fires later (e.g. once the menu is opened), it is a safe no-op.
-        let state = self.state
+        // `startEngines()` guards against reentry.
+        //
+        // Post-review fix (C1): reading `self.state` inside `init()` before
+        // `_state` is assigned would read a transient `AppState` distinct from
+        // the one actually installed in the view graph by `@StateObject`,
+        // since SwiftUI creates its own storage for the property wrapper on
+        // first materialization. Build the instance explicitly and install it
+        // via `_state = StateObject(wrappedValue:)` so the Task below and the
+        // graph share the exact same object.
+        let state = AppState()
+        _state = StateObject(wrappedValue: state)
         Task { await state.startEngines() }
     }
 
@@ -52,9 +60,6 @@ struct FlussoApp: App {
     var body: some Scene {
         MenuBarExtra("Flusso", systemImage: menuIcon) {
             MenuContent(state: state)
-                .task {
-                    await state.startEngines()
-                }
         }
         // Window scenes for Task 13; placeholders keep openWindow ids valid.
         Window("Recent Dictations", id: "history") { Text("Coming in Task 13").padding() }
