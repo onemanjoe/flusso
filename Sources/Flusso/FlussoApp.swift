@@ -61,10 +61,10 @@ struct FlussoApp: App {
         MenuBarExtra("Flusso", systemImage: menuIcon) {
             MenuContent(state: state)
         }
-        // Window scenes for Task 13; placeholders keep openWindow ids valid.
-        Window("Recent Dictations", id: "history") { Text("Coming in Task 13").padding() }
-        Window("Personal Dictionary", id: "dictionary") { Text("Coming in Task 13").padding() }
-        Window("Flusso Settings", id: "settings") { Text("Coming in Task 13").padding() }
+        Window("Recent Dictations", id: "history") { HistoryView(state: state) }
+        Window("Personal Dictionary", id: "dictionary") { DictionaryView(state: state) }
+        Window("Flusso Settings", id: "settings") { SettingsView(state: state) }
+        // Window scene for Task 14; placeholder keeps openWindow id valid.
         Window("Flusso Setup", id: "onboarding") { Text("Coming in Task 14").padding() }
     }
 }

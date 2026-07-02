@@ -13,7 +13,11 @@ final class AppState: ObservableObject {
     @Published var settings: AppSettings {
         didSet { try? settings.save(to: dir) }
     }
-    var dictionary: PersonalDictionary {
+    // Adaptation (task-13): marked @Published so DictionaryView's List refreshes
+    // after add/remove. PersonalDictionary is a value type, so mutating it through
+    // the binding (`state.dictionary.remove(term)`) triggers this property's
+    // didSet/willSet exactly like a whole-value assignment would.
+    @Published var dictionary: PersonalDictionary {
         didSet { try? dictionary.save(to: dir) }
     }
 
