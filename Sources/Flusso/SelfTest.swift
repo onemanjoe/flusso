@@ -13,6 +13,13 @@ enum SelfTest {
             await asrTest(wavPath: args[i + 1])
             return true
         }
+        if args.contains("--selftest-paste") {
+            print("Click into any text field, pasting in 4 seconds...")
+            try? await Task.sleep(nanoseconds: 4_000_000_000)
+            await MainActor.run { Injector.paste("flusso paste test ok") }
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            return true
+        }
         return false
     }
 
