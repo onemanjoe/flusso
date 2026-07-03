@@ -40,28 +40,25 @@ public struct Cleaner {
         return prompt
     }
 
-    /// Filler words and self-correction markers that force the LLM path even when
-    /// the text is otherwise short. Deliberately broad: when in doubt, route to
-    /// the model rather than risk shipping an unedited "ehm" or an abandoned
-    /// self-correction through the fast path.
-    private static let markers = [
-        "ehm", "uhm", " uh ", " um ", "cioè", "anzi", "aspetta", "no wait",
-        "i mean", "actually", "scratch that", "voglio dire", "diciamo",
+    private static let fillerWords: Set<String> = [
+        "ehm", "uhm", "uh", "um", "erm", "mmm", "cioè", "anzi", "aspetta",
+        "actually", "tipo", "boh", "insomma", "diciamo",
     ]
+    private static let fillerPhrases = ["no wait", "i mean", "scratch that", "voglio dire"]
 
     /// Text qualifies for the fast path (skip the model entirely) when it is
     /// short, has no filler/self-correction marker, and has no immediate
     /// duplicate word, since Parakeet already punctuates and capitalizes, so
     /// there is nothing left for the model to fix beyond dictionary spelling.
     private static func qualifiesForFastPath(_ text: String) -> Bool {
-        let words = text.split(whereSeparator: { $0.isWhitespace })
-        guard words.count < 12 else { return false }
-        let lowered = " " + text.lowercased() + " "
-        guard !markers.contains(where: { lowered.contains($0) }) else { return false }
-        let loweredWords = words.map { $0.lowercased() }
-        for i in 1..<loweredWords.count where loweredWords[i] == loweredWords[i - 1] {
-            return false
-        }
+        let tokens = text.split(whereSeparator: { $0.isWhitespace })
+            .map { $0.lowercased().trimmingCharacters(in: CharacterSet.alphanumerics.inverted) }
+            .filter { !$0.isEmpty }
+        guard !tokens.isEmpty, tokens.count < 12 else { return false }
+        if tokens.contains(where: { fillerWords.contains($0) }) { return false }
+        for i in 1..<tokens.count where tokens[i] == tokens[i - 1] { return false }
+        let normalized = tokens.joined(separator: " ")
+        if fillerPhrases.contains(where: { normalized.contains($0) }) { return false }
         return true
     }
 
@@ -72,9 +69,11 @@ public struct Cleaner {
     public static func enforceDictionary(_ text: String, terms: [String]) -> String {
         var result = text
         for term in terms {
-            let pattern = "\\b" + NSRegularExpression.escapedPattern(for: term) + "\\b"
+            let trimmedTerm = term.trimmingCharacters(in: .whitespaces)
+            guard !trimmedTerm.isEmpty else { continue }
+            let pattern = "\\b" + NSRegularExpression.escapedPattern(for: trimmedTerm) + "\\b"
             guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
-            let template = NSRegularExpression.escapedTemplate(for: term)
+            let template = NSRegularExpression.escapedTemplate(for: trimmedTerm)
             let range = NSRange(result.startIndex..<result.endIndex, in: result)
             result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: template)
         }

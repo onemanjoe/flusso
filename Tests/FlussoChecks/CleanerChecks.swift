@@ -69,4 +69,16 @@ func cleanerChecks() async {
         let r = await c.clean(raw: "ehm ciao scrivo a materik", dictionaryTerms: ["Materik"])
         try Harness.expect(r.text.contains("Materik"), "got \(r.text)")
     }
+    await Harness.check("punctuation-adjacent filler routes to model") {
+        var called = false
+        let c = Cleaner(chat: { _, _ in called = true; return "Send the file." })
+        _ = await c.clean(raw: "Um, send the file.", dictionaryTerms: [])
+        try Harness.expect(called, "comma-attached filler must not take the fast path")
+    }
+    await Harness.check("punctuation-attached duplicate routes to model") {
+        var called = false
+        let c = Cleaner(chat: { _, _ in called = true; return "send it" })
+        _ = await c.clean(raw: "send it it.", dictionaryTerms: [])
+        try Harness.expect(called, "trailing-punctuation duplicate must not take the fast path")
+    }
 }
