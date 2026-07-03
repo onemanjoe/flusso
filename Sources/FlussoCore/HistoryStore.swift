@@ -5,12 +5,17 @@ public struct DictationRecord: Codable, Equatable {
     public let raw: String
     public let cleaned: String
     public let audioFile: String?
+    public let transcribeMs: Int?
+    public let cleanMs: Int?
 
-    public init(date: Date, raw: String, cleaned: String, audioFile: String?) {
+    public init(date: Date, raw: String, cleaned: String, audioFile: String?,
+                transcribeMs: Int? = nil, cleanMs: Int? = nil) {
         self.date = date
         self.raw = raw
         self.cleaned = cleaned
         self.audioFile = audioFile
+        self.transcribeMs = transcribeMs
+        self.cleanMs = cleanMs
     }
 }
 

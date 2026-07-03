@@ -40,16 +40,60 @@ public struct Cleaner {
         return prompt
     }
 
+    /// Filler words and self-correction markers that force the LLM path even when
+    /// the text is otherwise short. Deliberately broad: when in doubt, route to
+    /// the model rather than risk shipping an unedited "ehm" or an abandoned
+    /// self-correction through the fast path.
+    private static let markers = [
+        "ehm", "uhm", " uh ", " um ", "cioè", "anzi", "aspetta", "no wait",
+        "i mean", "actually", "scratch that", "voglio dire", "diciamo",
+    ]
+
+    /// Text qualifies for the fast path (skip the model entirely) when it is
+    /// short, has no filler/self-correction marker, and has no immediate
+    /// duplicate word, since Parakeet already punctuates and capitalizes, so
+    /// there is nothing left for the model to fix beyond dictionary spelling.
+    private static func qualifiesForFastPath(_ text: String) -> Bool {
+        let words = text.split(whereSeparator: { $0.isWhitespace })
+        guard words.count < 12 else { return false }
+        let lowered = " " + text.lowercased() + " "
+        guard !markers.contains(where: { lowered.contains($0) }) else { return false }
+        let loweredWords = words.map { $0.lowercased() }
+        for i in 1..<loweredWords.count where loweredWords[i] == loweredWords[i - 1] {
+            return false
+        }
+        return true
+    }
+
+    /// Replaces case-insensitive whole-word occurrences of each dictionary term
+    /// with the term's exact, canonical spelling. Guarantees personal-term
+    /// spelling even on the fast path (no model involved) and as a safety net
+    /// after the model reply (in case it misses a term).
+    public static func enforceDictionary(_ text: String, terms: [String]) -> String {
+        var result = text
+        for term in terms {
+            let pattern = "\\b" + NSRegularExpression.escapedPattern(for: term) + "\\b"
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { continue }
+            let template = NSRegularExpression.escapedTemplate(for: term)
+            let range = NSRange(result.startIndex..<result.endIndex, in: result)
+            result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: template)
+        }
+        return result
+    }
+
     public func clean(raw: String, dictionaryTerms: [String]) async -> CleanResult {
         let trimmedRaw = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedRaw.isEmpty else { return CleanResult(text: "", usedFallback: false) }
+        if Self.qualifiesForFastPath(trimmedRaw) {
+            return CleanResult(text: Self.enforceDictionary(trimmedRaw, terms: dictionaryTerms), usedFallback: false)
+        }
         do {
             let reply = try await chat(Self.systemPrompt(dictionaryTerms: dictionaryTerms), trimmedRaw)
             let cleaned = reply.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !cleaned.isEmpty else { return CleanResult(text: trimmedRaw, usedFallback: true) }
-            return CleanResult(text: cleaned, usedFallback: false)
+            return CleanResult(text: Self.enforceDictionary(cleaned, terms: dictionaryTerms), usedFallback: false)
         } catch {
-            return CleanResult(text: trimmedRaw, usedFallback: true)
+            return CleanResult(text: Self.enforceDictionary(trimmedRaw, terms: dictionaryTerms), usedFallback: true)
         }
     }
 }

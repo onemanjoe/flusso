@@ -25,14 +25,16 @@ public final class OllamaClient {
 
     private struct ChatRequest: Encodable {
         struct Message: Encodable { let role: String; let content: String }
+        struct Options: Encodable { let temperature: Double }
         let model: String
         let stream: Bool
         let think: Bool // disables reasoning on thinking models, ignored by others (verified 2026-07-02)
         let messages: [Message]
-        let keepAlive: String // keeps the model loaded, avoids ~5 s cold start per dictation
+        let keepAlive: String // model stays resident all day, avoids multi-second reloads between dictations
+        let options: Options
 
         enum CodingKeys: String, CodingKey {
-            case model, stream, think, messages
+            case model, stream, think, messages, options
             case keepAlive = "keep_alive"
         }
     }
@@ -73,7 +75,7 @@ public final class OllamaClient {
             model: model, stream: false, think: false,
             messages: [.init(role: "system", content: system),
                        .init(role: "user", content: user)],
-            keepAlive: "30m"))
+            keepAlive: "24h", options: ChatRequest.Options(temperature: 0)))
         let data = try await perform(request)
         guard let chat = try? JSONDecoder().decode(ChatResponse.self, from: data) else {
             throw OllamaError.badResponse

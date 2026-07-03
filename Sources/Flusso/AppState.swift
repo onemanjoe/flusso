@@ -135,9 +135,12 @@ final class AppState: ObservableObject {
         }
         guard Double(samples.count) >= AudioRecorder.targetSampleRate * 0.4 else { return }
         do {
+            let transcribeStart = Date()
             let raw = try await engine.transcribe(samples)
+            let transcribeMs = Int(Date().timeIntervalSince(transcribeStart) * 1000)
             guard !raw.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
 
+            let cleanStart = Date()
             var result = CleanResult(text: raw, usedFallback: false)
             // Post-review fix (I1): `settings.ollamaEndpoint` is user-editable text,
             // so force-unwrapping `URL(string:)` could crash on a malformed value.
@@ -158,6 +161,7 @@ final class AppState: ObservableObject {
             } else {
                 lastWarning = nil
             }
+            let cleanMs = Int(Date().timeIntervalSince(cleanStart) * 1000)
 
             Injector.paste(result.text)
             lastCleaned = result.text
@@ -170,7 +174,8 @@ final class AppState: ObservableObject {
                 audioFile = name
             }
             try? history.append(DictationRecord(date: Date(), raw: raw,
-                                                cleaned: result.text, audioFile: audioFile))
+                                                cleaned: result.text, audioFile: audioFile,
+                                                transcribeMs: transcribeMs, cleanMs: cleanMs))
         } catch {
             lastWarning = "Transcription failed: \(error.localizedDescription)"
         }

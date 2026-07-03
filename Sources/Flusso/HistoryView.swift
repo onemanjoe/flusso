@@ -9,8 +9,14 @@ struct HistoryView: View {
         VStack(alignment: .leading, spacing: 8) {
             List(Array(records.enumerated()), id: \.offset) { _, record in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(record.date.formatted(date: .abbreviated, time: .shortened))
-                        .font(.caption).foregroundStyle(.secondary)
+                    HStack {
+                        Text(record.date.formatted(date: .abbreviated, time: .shortened))
+                        if let transcribeMs = record.transcribeMs, let cleanMs = record.cleanMs {
+                            Text(timingLabel(transcribeMs: transcribeMs, cleanMs: cleanMs))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
                     Text(record.cleaned)
                     HStack {
                         Button("Copy") {
@@ -40,5 +46,9 @@ struct HistoryView: View {
         .onChange(of: state.phase) { _, newPhase in
             if newPhase == .idle { records = state.history.recent(20) }
         }
+    }
+
+    private func timingLabel(transcribeMs: Int, cleanMs: Int) -> String {
+        String(format: "%.1f s + %.1f s", Double(transcribeMs) / 1000, Double(cleanMs) / 1000)
     }
 }
