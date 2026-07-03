@@ -17,3 +17,10 @@ Read this first at every session start.
 - Follow-up tickets (non-blocking): paste-into-non-editable target loses clipboard text after 0.7 s (recovery: menu Copy Last Dictation), add-word-from-History button, hotkey picker (Fn hardcoded), AppSettings decodeIfPresent when adding fields.
 - PENDING: Giuseppe's live acceptance run (README "First run checklist"): install via `scripts/bundle.sh --install`, grant 3 permissions, download model via Setup, dictate IT+EN, Wi-Fi-off test, Ollama-off fallback test, quit WiseMe first (Fn conflict), set the globe/Fn key to Do Nothing in System Settings Keyboard.
 - PENDING: merge feature/v1 → main (awaiting Giuseppe's choice).
+
+## 2026-07-03 (speed package, his explicit priority)
+- Benchmarked cleanup models on real IT/EN dictations: qwen2.5:7b stays default (qwen3.5:4b paraphrases, gemma4:e4b misses self-corrections; both left installed for future comparison).
+- Shipped: 24h keep_alive + temperature 0 (kills the ~5s idle reload, WiseMe's real disease), fast path for short marker-free dictations (~0.25s total, local dictionary spelling enforcement), per-dictation stage timings shown in History, --selftest-pipeline benchmark tool.
+- Review caught punctuation gaps in the fast-path guard ("Um, send the file."); fixed with token-normalized matching, RED-GREEN verified.
+- Measured warm pipeline: ~1.0-1.1s total for filler-heavy dictations (0.2s ASR + 0.8-0.9s cleanup); fast path ~0.25s.
+- Suite now 35 checks. Branch feature/v1 at 4513d7f, 28 commits, tree clean, bundle builds.
