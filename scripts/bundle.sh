@@ -26,7 +26,18 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
 </dict>
 </plist>
 PLIST
-codesign --force --sign - "$APP"
+# Prefer a stable local signing identity so macOS keeps the TCC permissions
+# (Accessibility, Input Monitoring) across rebuilds. The certificate hash is
+# constant, so the app's designated requirement does not change when the code
+# does. Falls back to ad-hoc signing when the cert is absent (another Mac).
+SIGN_HASH="$(security find-certificate -c 'Flusso Local Signing' -Z 2>/dev/null | awk '/SHA-1 hash:/{print $3; exit}')" || SIGN_HASH=""
+if [ -n "$SIGN_HASH" ]; then
+    codesign --force --sign "$SIGN_HASH" "$APP"
+    echo "Signed with stable local identity, permissions persist across rebuilds."
+else
+    codesign --force --sign - "$APP"
+    echo "Ad-hoc signed, no local signing identity found."
+fi
 echo "Built $APP"
 
 if [ "${1:-}" = "--install" ]; then
