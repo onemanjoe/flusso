@@ -35,3 +35,7 @@ Read this first at every session start.
 - Added app icon (waveform on blue-indigo gradient squircle): AppIcon.icns committed, bundle.sh copies it to Resources + Info.plist CFBundleIconFile. Source: scratchpad make_icon.py (Pillow) -> iconset -> iconutil.
 - English share package on Desktop: Flusso-for-a-friend.zip (app + README.txt + PROMPT-FOR-CLAUDE.md that drives a fresh Claude Code to install Ollama+model and the app). Replaced the earlier Italian zip.
 - Reinstalled Giuseppe's /Applications copy to get the icon; as expected the ad-hoc re-sign broke Accessibility again (TCC still auth=2 but cdhash mismatch); reset + re-grant in progress. Confirmed the empirical test: unload model -> reinstall -> if engines start they reload the model; they did not, proving accessibility was the blocker.
+
+## 2026-07-04 (language bug fix)
+- BUG (from his real corpus): LLM cleanup translated longer EN dictations to IT ("I hope I can see you soon" -> "Io spero di rivedervi presto"). Fast-path (short) phrases were fine, which masked it earlier. Root cause: generic "never translate" rule too weak for qwen2.5:7b.
+- FIX: detect transcript language on-device (NaturalLanguage NLLanguageRecognizer), inject "reply MUST be in <language>" into the prompt. Verified via real Ollama on the failing sentences + pipeline selftest: EN stays EN, IT stays IT. 37 checks green.
