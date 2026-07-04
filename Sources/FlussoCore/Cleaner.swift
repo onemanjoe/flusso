@@ -1,4 +1,5 @@
 import Foundation
+import NaturalLanguage
 
 public typealias ChatFunction = (_ system: String, _ user: String) async throws -> String
 
@@ -19,13 +20,27 @@ public struct Cleaner {
         self.chat = chat
     }
 
-    public static func systemPrompt(dictionaryTerms: [String]) -> String {
+    /// Detects the dominant language of the transcript locally (Apple's
+    /// NaturalLanguage, on-device, instant) and returns its English name, so
+    /// the cleanup prompt can pin the output language and stop the model from
+    /// silently translating. Falls back to a generic phrase when unsure.
+    public static func detectedLanguageName(_ text: String) -> String {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        guard let code = recognizer.dominantLanguage,
+              let name = Locale(identifier: "en_US").localizedString(forLanguageCode: code.rawValue)
+        else { return "the same language as the transcript" }
+        return name
+    }
+
+    public static func systemPrompt(dictionaryTerms: [String], language: String) -> String {
         var prompt = """
+        The transcript is written in \(language). Your entire reply MUST be in \(language), \
+        the same language as the transcript. Do not translate it into another language, ever.
         You are a dictation cleanup engine. You receive one raw speech-to-text transcript. \
         Reply with ONLY the cleaned text, no comments, no quotes, no explanations.
         Rules:
-        1. Keep the language of the transcript. Italian stays Italian, English stays English, \
-        mixed stays mixed. Never translate.
+        1. Output language: \(language). Keep the same language as the transcript. Never translate.
         2. Remove filler words and hesitations, for example: uh, um, ehm, and repeated words.
         3. Fix punctuation, capitalization, and obvious transcription mistakes. \
         Do not change the meaning or the wording style.
@@ -87,7 +102,8 @@ public struct Cleaner {
             return CleanResult(text: Self.enforceDictionary(trimmedRaw, terms: dictionaryTerms), usedFallback: false)
         }
         do {
-            let reply = try await chat(Self.systemPrompt(dictionaryTerms: dictionaryTerms), trimmedRaw)
+            let language = Self.detectedLanguageName(trimmedRaw)
+            let reply = try await chat(Self.systemPrompt(dictionaryTerms: dictionaryTerms, language: language), trimmedRaw)
             let cleaned = reply.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !cleaned.isEmpty else { return CleanResult(text: trimmedRaw, usedFallback: true) }
             return CleanResult(text: Self.enforceDictionary(cleaned, terms: dictionaryTerms), usedFallback: false)

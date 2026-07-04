@@ -2,11 +2,26 @@ import Foundation
 import FlussoCore
 
 func cleanerChecks() async {
-    await Harness.check("system prompt embeds dictionary and language rule") {
-        let p = Cleaner.systemPrompt(dictionaryTerms: ["Contoso", "Zephyr"])
+    await Harness.check("system prompt embeds dictionary, names language, forbids translation") {
+        let p = Cleaner.systemPrompt(dictionaryTerms: ["Contoso", "Zephyr"], language: "English")
         try Harness.expect(p.contains("Contoso, Zephyr"), "terms not embedded")
+        try Harness.expect(p.contains("English"), "language not named in prompt")
         try Harness.expect(p.lowercased().contains("never translate"), "language rule missing")
         try Harness.expect(!p.contains("\u{2014}") && !p.contains("\u{2013}"), "prompt contains a dash")
+    }
+    await Harness.check("cleaner pins English for an English transcript") {
+        var seen = ""
+        let c = Cleaner(chat: { sys, _ in seen = sys; return "ok" })
+        _ = await c.clean(raw: "please send the updated report to the whole team tomorrow morning without fail",
+                          dictionaryTerms: [])
+        try Harness.expect(seen.contains("English"), "prompt did not pin English, got: \(seen.prefix(70))")
+    }
+    await Harness.check("cleaner pins Italian for an Italian transcript") {
+        var seen = ""
+        let c = Cleaner(chat: { sys, _ in seen = sys; return "ok" })
+        _ = await c.clean(raw: "per favore manda il rapporto aggiornato a tutta la squadra domani mattina senza fallo",
+                          dictionaryTerms: [])
+        try Harness.expect(seen.contains("Italian"), "prompt did not pin Italian, got: \(seen.prefix(70))")
     }
     await Harness.check("clean uses model reply") {
         let c = Cleaner(chat: { _, user in
