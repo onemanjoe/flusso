@@ -24,3 +24,9 @@ Read this first at every session start.
 - Review caught punctuation gaps in the fast-path guard ("Um, send the file."); fixed with token-normalized matching, RED-GREEN verified.
 - Measured warm pipeline: ~1.0-1.1s total for filler-heavy dictations (0.2s ASR + 0.8-0.9s cleanup); fast path ~0.25s.
 - Suite now 35 checks. Branch feature/v1 at 4513d7f, 28 commits, tree clean, bundle builds.
+
+## 2026-07-04 (MERGED + live)
+- feature/v1 MERGED to main (merge commit 80f27f9, --no-ff), branch deleted, 35 checks green on main. v1 is now official.
+- Installed to /Applications, all 3 permissions granted, dictation confirmed working by Giuseppe.
+- Cleanup Ollama is SHARED with WiseMe (same localhost:11434 + qwen2.5:7b). Speech model (FluidAudio Parakeet V3) already on disk at ~/Library/Application Support/FluidAudio/, no re-download.
+- Accessibility gotcha: bundle.sh --install re-signs ad-hoc, breaking the grant; reset with tccutil + re-grant, do not reinstall after granting.
