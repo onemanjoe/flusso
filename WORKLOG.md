@@ -30,3 +30,8 @@ Read this first at every session start.
 - Installed to /Applications, all 3 permissions granted, dictation confirmed working by Giuseppe.
 - Cleanup Ollama is SHARED with WiseMe (same localhost:11434 + qwen2.5:7b). Speech model (FluidAudio Parakeet V3) already on disk at ~/Library/Application Support/FluidAudio/, no re-download.
 - Accessibility gotcha: bundle.sh --install re-signs ad-hoc, breaking the grant; reset with tccutil + re-grant, do not reinstall after granting.
+
+## 2026-07-04 (icon + share package)
+- Added app icon (waveform on blue-indigo gradient squircle): AppIcon.icns committed, bundle.sh copies it to Resources + Info.plist CFBundleIconFile. Source: scratchpad make_icon.py (Pillow) -> iconset -> iconutil.
+- English share package on Desktop: Flusso-for-a-friend.zip (app + README.txt + PROMPT-FOR-CLAUDE.md that drives a fresh Claude Code to install Ollama+model and the app). Replaced the earlier Italian zip.
+- Reinstalled Giuseppe's /Applications copy to get the icon; as expected the ad-hoc re-sign broke Accessibility again (TCC still auth=2 but cdhash mismatch); reset + re-grant in progress. Confirmed the empirical test: unload model -> reinstall -> if engines start they reload the model; they did not, proving accessibility was the blocker.
