@@ -56,7 +56,7 @@ In Settings, toggle "Start Flusso at login" to have it open automatically every 
 
 This is the manual check to run once, after installing and granting permissions, to confirm everything works end to end.
 
-1. Dictate into Notes, Mail compose, WhatsApp Desktop, and a browser text box, in both Italian and English. Fillers should be removed, and "Materik" should be spelled correctly.
+1. Dictate into Notes, Mail compose, WhatsApp Desktop, and a browser text box, in both Italian and English. Fillers should be removed, and "Contoso" should be spelled correctly.
 2. Self-correction test: say "scrivi lunedì, anzi no, martedì alle tre" and confirm the output keeps only "martedì alle tre".
 3. Clipboard test: copy a word, dictate something else, then press Cmd+V afterward and confirm it still pastes the word you originally copied (Flusso should not clobber your clipboard).
 4. Turn Wi-Fi off, then dictate. It must work exactly the same, since both the speech model and Ollama run locally.

@@ -3,8 +3,8 @@ import FlussoCore
 
 func cleanerChecks() async {
     await Harness.check("system prompt embeds dictionary and language rule") {
-        let p = Cleaner.systemPrompt(dictionaryTerms: ["Materik", "Klaviyo"])
-        try Harness.expect(p.contains("Materik, Klaviyo"), "terms not embedded")
+        let p = Cleaner.systemPrompt(dictionaryTerms: ["Contoso", "Zephyr"])
+        try Harness.expect(p.contains("Contoso, Zephyr"), "terms not embedded")
         try Harness.expect(p.lowercased().contains("never translate"), "language rule missing")
         try Harness.expect(!p.contains("\u{2014}") && !p.contains("\u{2013}"), "prompt contains a dash")
     }
@@ -39,8 +39,8 @@ func cleanerChecks() async {
             try Harness.expect(false, "model called on fast path")
             return ""
         })
-        let r = await c.clean(raw: "manda il file a materik domani", dictionaryTerms: ["Materik"])
-        try Harness.expect(r == CleanResult(text: "manda il file a Materik domani", usedFallback: false), "got \(r)")
+        let r = await c.clean(raw: "manda il file a contoso domani", dictionaryTerms: ["Contoso"])
+        try Harness.expect(r == CleanResult(text: "manda il file a Contoso domani", usedFallback: false), "got \(r)")
     }
     await Harness.check("marker routes to model") {
         var called = false
@@ -61,13 +61,13 @@ func cleanerChecks() async {
         try Harness.expect(called, "model not called despite length")
     }
     await Harness.check("enforceDictionary whole words only, multi-word terms") {
-        let out = Cleaner.enforceDictionary("il purecase e trovi technologies, ma non peraltro", terms: ["PureCase", "Trovi Technologies", "Alt"])
-        try Harness.expect(out == "il PureCase e Trovi Technologies, ma non peraltro", "got \(out)")
+        let out = Cleaner.enforceDictionary("il skycase e acme robotics, ma non peraltro", terms: ["SkyCase", "Acme Robotics", "Alt"])
+        try Harness.expect(out == "il SkyCase e Acme Robotics, ma non peraltro", "got \(out)")
     }
     await Harness.check("model reply gets dictionary enforcement") {
-        let c = Cleaner(chat: { _, _ in "Ciao, ehm scrivo a materik." })
-        let r = await c.clean(raw: "ehm ciao scrivo a materik", dictionaryTerms: ["Materik"])
-        try Harness.expect(r.text.contains("Materik"), "got \(r.text)")
+        let c = Cleaner(chat: { _, _ in "Ciao, ehm scrivo a contoso." })
+        let r = await c.clean(raw: "ehm ciao scrivo a contoso", dictionaryTerms: ["Contoso"])
+        try Harness.expect(r.text.contains("Contoso"), "got \(r.text)")
     }
     await Harness.check("punctuation-adjacent filler routes to model") {
         var called = false

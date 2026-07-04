@@ -4,8 +4,8 @@ public struct PersonalDictionary: Codable, Equatable {
     public private(set) var terms: [String]
 
     public static let seedTerms = [
-        "Materik", "Trovi Technologies", "Klaviyo", "PureCase", "CrystalCase",
-        "Ripple", "Halo", "Rolando", "Shenzhen",
+        "Contoso", "Acme Robotics", "Zephyr", "SkyCase", "GlassCase",
+        "Nimbus", "Solstice", "Marco", "Singapore",
     ]
 
     static func fileURL(in dir: URL) -> URL { dir.appendingPathComponent("dictionary.json") }

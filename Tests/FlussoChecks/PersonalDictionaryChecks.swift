@@ -4,8 +4,8 @@ import FlussoCore
 func personalDictionaryChecks() async {
     await Harness.check("dictionary seeds on first load") {
         let d = PersonalDictionary.load(from: Harness.tempDir())
-        try Harness.expect(d.terms.contains("Materik"), "missing seed Materik")
-        try Harness.expect(d.terms.contains("Klaviyo"), "missing seed Klaviyo")
+        try Harness.expect(d.terms.contains("Contoso"), "missing seed Contoso")
+        try Harness.expect(d.terms.contains("Zephyr"), "missing seed Zephyr")
     }
     await Harness.check("dictionary add trims, dedupes case-insensitively") {
         var d = PersonalDictionary.load(from: Harness.tempDir())
@@ -18,10 +18,10 @@ func personalDictionaryChecks() async {
         let dir = Harness.tempDir()
         var d = PersonalDictionary.load(from: dir)
         d.add("Vicenza")
-        d.remove("Materik")
+        d.remove("Contoso")
         try d.save(to: dir)
         let loaded = PersonalDictionary.load(from: dir)
         try Harness.expect(loaded.terms.contains("Vicenza"), "lost added term")
-        try Harness.expect(!loaded.terms.contains("Materik"), "remove not persisted")
+        try Harness.expect(!loaded.terms.contains("Contoso"), "remove not persisted")
     }
 }
