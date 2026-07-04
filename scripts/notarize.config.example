@@ -1,0 +1,19 @@
+# Copy this file to scripts/notarize.config and fill in your values.
+# scripts/notarize.config is gitignored, it holds your account details.
+#
+# You need an Apple Developer account (99 USD per year) to get these.
+
+# Your Developer ID Application signing identity, exactly as it appears in
+# Keychain Access. Find it with:  security find-identity -v -p codesigning
+DEVELOPER_ID="Developer ID Application: Your Name (TEAMID)"
+
+# Your 10-character Apple Developer Team ID.
+TEAM_ID="TEAMID"
+
+# The name of a notarytool keychain profile you create ONCE with:
+#   xcrun notarytool store-credentials "flusso-notary" \
+#     --apple-id "you@example.com" \
+#     --team-id "TEAMID" \
+#     --password "app-specific-password"
+# (create the app-specific password at appleid.apple.com, Sign-In and Security)
+NOTARY_PROFILE="flusso-notary"
