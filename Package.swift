@@ -6,6 +6,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     dependencies: [
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.15.0"),
+        .package(url: "https://github.com/MrKai77/DynamicNotchKit.git", from: "1.1.0"),
     ],
     targets: [
         .target(
@@ -18,6 +19,7 @@ let package = Package(
             dependencies: [
                 "FlussoCore",
                 .product(name: "FluidAudio", package: "FluidAudio"),
+                .product(name: "DynamicNotchKit", package: "DynamicNotchKit"),
             ],
             path: "Sources/Flusso",
             swiftSettings: [.swiftLanguageMode(.v5)]
