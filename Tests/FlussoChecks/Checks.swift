@@ -15,6 +15,8 @@ struct Checks {
         await ollamaClientChecks()
         await cleanerChecks()
         await fnStateMachineChecks()
+        await audioLevelChecks()
+        await historyDisplayChecks()
         Harness.finish()
     }
 }
