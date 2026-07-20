@@ -29,6 +29,8 @@ final class AppState: ObservableObject {
     private let indicator = RecordingIndicator()
     private var lastCleaned: String?
     private var startInFlight = false
+    private var browsingRecords: [DictationRecord] = []
+    private var lingerTask: Task<Void, Never>?
 
     init(directory: URL = Paths.appSupportDir()) {
         dir = directory
@@ -80,6 +82,12 @@ final class AppState: ObservableObject {
             return
         }
         hotkey.onAction = { [weak self] action in self?.handle(action) }
+        recorder.onLevel = { [weak self] level in
+            Task { @MainActor in self?.indicator.setLevel(level) }
+        }
+        indicator.onHoverChange = { [weak self] hovering in
+            self?.handleIndicatorHover(hovering)
+        }
         guard hotkey.start() else {
             phase = .needsSetup("Cannot listen for the Fn key. Check Input Monitoring permission.")
             return
@@ -108,7 +116,9 @@ final class AppState: ObservableObject {
             do {
                 try recorder.start()
                 phase = .recording
-                indicator.show("Listening", color: .red)
+                lingerTask?.cancel()
+                browsingRecords = history.recent(5)
+                indicator.showListening()
             } catch {
                 lastWarning = "Microphone failed: \(error.localizedDescription)"
             }
@@ -116,12 +126,13 @@ final class AppState: ObservableObject {
             guard phase == .recording else { return }
             _ = recorder.stop()
             phase = .idle
-            indicator.hide()
+            indicator.showPeek()
+            startLinger()
         case .stopAndProcess:
             guard phase == .recording else { return }
             let samples = recorder.stop()
             phase = .processing
-            indicator.show("Thinking", color: .orange)
+            indicator.showThinking()
             Task { await process(samples) }
         case .none:
             break
@@ -181,6 +192,45 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// After a quick tap (cancelRecording), keep a subtle peek hint up briefly so
+    /// the user can reach it with the mouse; hide it if they do not hover in time.
+    private func startLinger() {
+        lingerTask?.cancel()
+        lingerTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            guard let self, !Task.isCancelled else { return }
+            if self.phase == .idle { self.indicator.hide() }
+        }
+    }
+
+    /// Mouse entered/left the indicator. On enter: cancel any pending recording and
+    /// open the last-5 history. On leave: hide.
+    private func handleIndicatorHover(_ hovering: Bool) {
+        guard hovering else { indicator.hide(); return }
+        lingerTask?.cancel()
+        if phase == .recording {
+            _ = recorder.stop()
+            phase = .idle
+        }
+        let records = browsingRecords.isEmpty ? history.recent(5) : browsingRecords
+        browsingRecords = records
+        let now = Date()
+        let rows = records.map { rec in
+            IndicatorRow(snippet: HistoryDisplay.snippet(cleaned: rec.cleaned, raw: rec.raw),
+                         time: HistoryDisplay.relativeTime(from: rec.date, to: now))
+        }
+        indicator.showHistory(rows) { [weak self] idx in self?.copyHistoryEntry(idx) }
+    }
+
+    private func copyHistoryEntry(_ index: Int) {
+        guard index >= 0, index < browsingRecords.count else { return }
+        let rec = browsingRecords[index]
+        let text = HistoryDisplay.text(cleaned: rec.cleaned, raw: rec.raw)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        indicator.flashCopied()
+    }
+
     func copyLastDictation() {
         guard let lastCleaned else { return }
         NSPasteboard.general.clearContents()
@@ -193,6 +243,7 @@ final class AppState: ObservableObject {
         // since `handle(_:)` gates every action on `!settings.paused`. Stop the
         // recorder and reset to idle first so pausing mid-recording can't strand it.
         if phase == .recording {
+            lingerTask?.cancel()
             _ = recorder.stop()
             indicator.hide()
             phase = .idle
