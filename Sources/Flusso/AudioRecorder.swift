@@ -1,4 +1,5 @@
 import AVFoundation
+import FlussoCore
 
 final class AudioRecorder {
     static let targetSampleRate = 16_000.0
@@ -8,10 +9,16 @@ final class AudioRecorder {
     private var samples: [Float] = []
     private let lock = NSLock()
 
+    /// Emits a 0...1 voice level (~20 Hz) from the audio thread while recording,
+    /// for the notch waveform. Consumers must hop to the main actor themselves.
+    var onLevel: ((Float) -> Void)?
+    private var lastLevelEmit: TimeInterval = 0
+
     func start() throws {
         lock.lock()
         samples.removeAll()
         lock.unlock()
+        lastLevelEmit = 0
         let input = engine.inputNode
         let inputFormat = input.outputFormat(forBus: 0)
         guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
@@ -35,12 +42,21 @@ final class AudioRecorder {
                 return buffer
             }
             guard let channel = out.floatChannelData?[0] else { return }
+            let frame = Int(out.frameLength)
             self.lock.lock()
             if self.samples.count < Self.maxSamples {
-                self.samples.append(contentsOf: UnsafeBufferPointer(start: channel,
-                                                                    count: Int(out.frameLength)))
+                self.samples.append(contentsOf: UnsafeBufferPointer(start: channel, count: frame))
             }
             self.lock.unlock()
+
+            if let onLevel = self.onLevel, frame > 0 {
+                let now = ProcessInfo.processInfo.systemUptime
+                if now - self.lastLevelEmit >= 0.05 {
+                    self.lastLevelEmit = now
+                    let buf = Array(UnsafeBufferPointer(start: channel, count: frame))
+                    onLevel(AudioLevel.normalized(rms: AudioLevel.rms(buf)))
+                }
+            }
         }
         engine.prepare()
         try engine.start()
